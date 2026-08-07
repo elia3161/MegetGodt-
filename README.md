@@ -7,6 +7,7 @@ Kernefunktioner:
 - Se månedlig tabel og vækstkurve.
 - Dansk locale (DKK) som standard, let at skifte valuta.
 - PWA-opsætning (vite-plugin-pwa)
+- Automatisk deployment til GitHub Pages via GitHub Actions (gh-pages branch)
 
 Kør lokalt:
 
@@ -22,10 +23,20 @@ npm run dev
 
 npm run test
 
-Deployment:
-- Byg med `npm run build` og deploy dist mappen.
+Deployment via GitHub Actions:
+- Når du merger til en af brancherne `main`, `master` eller `feature/pwa-investment`, workflowet bygger appen og deployer `dist/` til `gh-pages`-branch.
+- Når deployment er færdig kan appen åbnes på:
 
-Jeg har lavet en feature-branch: `feature/pwa-investment` og åbner en pull request mod din default branch.
+  https://elia3161.github.io/MegetGodt-
 
-Feedback:
-- Fortæl mig hvis du vil have CSV-eksport, PDF, eller mere detaljeret kalender-visning.
+(Det kan være nødvendigt at gå til repository Settings → Pages og sikre at GitHub Pages er sat til at servere fra `gh-pages`-branch (root).)
+
+Bemærkninger:
+- Vite base er sat til `/MegetGodt-/` så appen fungerer korrekt når den hostes under det path.
+- Jeg har tilføjet et simpelt SVG-ikon (`public/pwa-icon.svg`). Du kan erstatte det med egne PNG/ikonfiler.
+
+Næste skridt jeg kan tage automatisk:
+- Polere UI og implementere månedligt kalender-grid.
+- Tilføje CSV-eksport og localStorage persistence.
+
+Sig til hvis jeg skal fortsætte med UI-polish + kalendergrid; ellers åbner jeg en Pull Request når du er klar til review.
