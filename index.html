@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Afkastberegner — Se din opsparing vokse</title>
+<meta name="description" content="Beregn hvordan startbeløb, månedligt indskud og forventet afkast vokser måned for måned.">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B3A34">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Afkast">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440;9..144,560;9..144,650;9..144,760&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --paper:#F1EEE6;
+    --paper-deep:#E7E0D0;
+    --panel:#FFFDF9;
+    --ink:#211C15;
+    --ink-soft:#645C4C;
+    --ink-faint:#A79E8A;
+    --pine:#1B3A34;
+    --pine-deep:#0E2521;
+    --pine-tint:#DEE8E4;
+    --brass:#B8863E;
+    --brass-deep:#8A5F27;
+    --brass-tint:#EFDDB2;
+    --rust:#B24A2E;
+    --rust-deep:#8A3A22;
+    --rust-tint:#F0D9CE;
+    --line:#DAD2BE;
+    --line-strong:#C6BC9F;
+    --radius-s:9px;
+    --radius-m:16px;
+    --radius-l:24px;
+    --shadow-soft:0 1px 2px rgba(33,28,21,.05), 0 14px 30px -18px rgba(33,28,21,.35);
+    --font-display:'Fraunces', Georgia, serif;
+    --font-body:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono:'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+    --dur:.45s;
+  }
+
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .noise-overlay{
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    opacity:.05; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{ position:relative; z-index:1; max-width:1080px; margin:0 auto; padding:0 20px 80px; }
+
+  a{ color:inherit; }
+  h1,h2,h3{ font-family:var(--font-display); font-weight:650; margin:0; color:var(--ink); }
+  .mono{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
+
+  /* ---------- Header ---------- */
+  header.top{ padding:56px 0 40px; max-width:640px; }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--pine); display:flex; align-items:center; gap:10px; margin-bottom:18px;
+  }
+  .eyebrow::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--brass); display:inline-block; }
+  header.top h1{ font-size:clamp(30px, 5vw, 48px); line-height:1.08; letter-spacing:-.01em; }
+  header.top p{ margin-top:16px; color:var(--ink-soft); font-size:16px; max-width:52ch; }
+
+  /* ---------- Layout ---------- */
+  .hero-grid{ display:grid; grid-template-columns:1.05fr 1fr; gap:20px; align-items:stretch; }
+  @media (max-width:860px){ .hero-grid{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-l);
+    box-shadow:var(--shadow-soft);
+  }
+
+  /* ---------- Controls ---------- */
+  .controls{ padding:30px 30px 26px; display:flex; flex-direction:column; gap:26px; }
+  .ctrl-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .ctrl-label{ font-size:13.5px; font-weight:600; color:var(--ink); }
+  .ctrl-hint{ display:block; font-size:12px; font-weight:400; color:var(--ink-faint); margin-top:2px; }
+  .ctrl-value{ display:flex; align-items:center; gap:2px; background:var(--pine-tint); border-radius:999px; padding:3px 4px 3px 14px; }
+  .ctrl-value input{
+    width:88px; border:none; background:transparent; font-family:var(--font-mono); font-size:14px;
+    font-weight:600; color:var(--pine-deep); text-align:right; padding:4px 2px; -moz-appearance:textfield;
+  }
+  .ctrl-value input::-webkit-outer-spin-button,
+  .ctrl-value input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .ctrl-value span.unit{ font-family:var(--font-mono); font-size:12px; color:var(--pine); padding-right:10px; }
+  .ctrl-value:focus-within{ outline:2px solid var(--pine); outline-offset:1px; }
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:22px; background:transparent; margin:0; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:6px; border-radius:4px;
+    background:linear-gradient(to right, var(--pine) var(--fill,50%), var(--line) var(--fill,50%));
+  }
+  input[type=range]::-moz-range-track{ height:6px; border-radius:4px; background:var(--line); }
+  input[type=range]::-moz-range-progress{ height:6px; border-radius:4px; background:var(--pine); }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; margin-top:-8px; width:22px; height:22px; border-radius:50%;
+    background:var(--brass); border:3px solid var(--panel); box-shadow:0 1px 3px rgba(33,28,21,.35);
+    transition:transform .15s ease;
+  }
+  input[type=range]:active::-webkit-slider-thumb{ transform:scale(1.14); }
+  input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%; background:var(--brass); border:3px solid var(--panel);
+    box-shadow:0 1px 3px rgba(33,28,21,.35);
+  }
+  input[type=range]:focus-visible{ outline:none; }
+  input[type=range]:focus-visible::-webkit-slider-thumb{ outline:2px solid var(--pine); outline-offset:2px; }
+
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .chip{
+    font-family:var(--font-mono); font-size:12px; padding:6px 12px; border-radius:999px;
+    border:1px solid var(--line-strong); background:var(--paper); color:var(--ink-soft); cursor:pointer;
+    transition:background var(--dur), color var(--dur), border-color var(--dur);
+  }
+  .chip:hover{ border-color:var(--pine); color:var(--pine); }
+  .chip.is-active{ background:var(--pine); color:var(--paper); border-color:var(--pine); }
+
+  hr.rule{ border:none; border-top:1px solid var(--line); margin:0; }
+
+  /* ---------- Hero result ---------- */
+  .hero{
+    background:linear-gradient(165deg, var(--pine) 0%, var(--pine-deep) 100%);
+    border-radius:var(--radius-l); color:var(--paper); padding:34px 32px;
+    display:flex; flex-direction:column; box-shadow:var(--shadow-soft);
+    position:relative; overflow:hidden;
+  }
+  .hero::after{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:radial-gradient(520px 260px at 100% 0%, rgba(184,134,62,.25), transparent 70%);
+  }
+  .hero-label{ font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--brass-tint); position:relative; }
+  .hero-figure{
+    font-family:var(--font-display); font-weight:700; font-size:clamp(38px, 5.4vw, 58px);
+    line-height:1.05; margin-top:10px; letter-spacing:-.01em; position:relative;
+  }
+  .hero-figure .suffix{ font-size:.4em; font-weight:600; color:var(--brass-tint); margin-left:6px; }
+  .hero-sub{ margin-top:6px; color:rgba(241,238,230,.65); font-size:13.5px; position:relative; }
+
+  .proportion{ margin-top:22px; position:relative; }
+  .bar-track{ display:flex; height:10px; border-radius:999px; overflow:hidden; background:rgba(241,238,230,.12); }
+  .bar-seg{ height:100%; transition:width var(--dur) ease; }
+  .bar-seg.contrib{ background:var(--rust); }
+  .bar-seg.gain{ background:var(--brass); }
+
+  .stat-row{ display:flex; gap:16px; margin-top:16px; position:relative; }
+  .stat{ flex:1; }
+  .stat .dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:7px; }
+  .stat.contrib .dot{ background:var(--rust); }
+  .stat.gain .dot{ background:var(--brass); }
+  .stat-label{ font-size:12px; color:rgba(241,238,230,.65); display:flex; align-items:center; }
+  .stat-value{ font-family:var(--font-mono); font-weight:600; font-size:18px; margin-top:4px; }
+
+  .hero-foot{ margin-top:auto; padding-top:22px; font-size:12px; color:rgba(241,238,230,.5); position:relative; }
+
+  /* ---------- Chart ---------- */
+  .section{ margin-top:22px; padding:30px 30px 26px; }
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+  .section-head h2{ font-size:22px; }
+  .section-head p{ margin:4px 0 0; color:var(--ink-soft); font-size:13.5px; }
+
+  .chart-wrap{ position:relative; width:100%; }
+  .chart-wrap svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .chart-tooltip{
+    position:absolute; pointer-events:none; background:var(--pine-deep); color:var(--paper);
+    border-radius:10px; padding:10px 13px; font-size:12px; line-height:1.55; box-shadow:var(--shadow-soft);
+    transform:translate(-50%,-115%); opacity:0; transition:opacity .12s ease; white-space:nowrap; z-index:5;
+  }
+  .chart-tooltip.is-visible{ opacity:1; }
+  .chart-tooltip .tt-title{ font-family:var(--font-mono); font-size:11px; color:var(--brass-tint); margin-bottom:4px; }
+  .chart-tooltip .tt-row{ display:flex; justify-content:space-between; gap:14px; }
+  .chart-tooltip .tt-row .k{ color:rgba(241,238,230,.65); }
+  .chart-tooltip .tt-row .v{ font-family:var(--font-mono); font-weight:600; }
+
+  .legend{ display:flex; gap:18px; margin-top:14px; flex-wrap:wrap; }
+  .legend-item{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft); }
+  .legend-item .sw{ width:10px; height:10px; border-radius:3px; }
+  .legend-item .sw.rust{ background:var(--rust); }
+  .legend-item .sw.brass{ background:var(--brass); }
+
+  /* ---------- Ledger ---------- */
+  .ledger-toolbar{ display:flex; justify-content:flex-end; margin-bottom:4px; }
+  .text-btn{
+    font-family:var(--font-mono); font-size:12px; color:var(--pine); background:none; border:none;
+    cursor:pointer; padding:6px 4px; text-decoration:underline; text-underline-offset:3px;
+  }
+  .text-btn:hover{ color:var(--brass-deep); }
+
+  .ledger-list{ border-top:1px solid var(--line); position:relative; }
+  .ledger-list::before{
+    content:""; position:absolute; left:2px; top:0; bottom:0; width:0;
+    border-left:1px dashed var(--line-strong);
+  }
+  .year-card{ border-bottom:1px solid var(--line); }
+  .year-head{
+    width:100%; display:flex; align-items:center; gap:14px; background:none; border:none; cursor:pointer;
+    padding:15px 10px 15px 22px; text-align:left; font:inherit; color:inherit;
+    transition:background var(--dur);
+  }
+  .year-head:hover{ background:var(--paper-deep); }
+  .year-tag{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-faint); min-width:52px; }
+  .year-cal{ font-family:var(--font-display); font-weight:650; font-size:19px; min-width:64px; }
+  .year-meta{ flex:1; font-size:12.5px; color:var(--ink-soft); }
+  .year-end{ font-family:var(--font-mono); font-weight:600; font-size:15px; color:var(--pine-deep); }
+  .chevron{ width:11px; height:11px; flex-shrink:0; transition:transform var(--dur); color:var(--ink-faint); }
+  .year-card.is-open .chevron{ transform:rotate(90deg); }
+
+  .year-body{ overflow:hidden; padding:0 18px 20px 22px; }
+  .month-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+  @media (max-width:760px){ .month-grid{ grid-template-columns:repeat(4,1fr); } }
+  @media (max-width:460px){ .month-grid{ grid-template-columns:repeat(3,1fr); } }
+
+  .month-cell{
+    position:relative; background:var(--paper-deep); border:1px solid var(--line); border-radius:var(--radius-s);
+    padding:9px 9px 12px;
+  }
+  .m-label{ display:block; font-family:var(--font-mono); font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+  .m-value{ display:block; font-family:var(--font-mono); font-weight:600; font-size:12.5px; margin-top:5px; color:var(--ink); }
+  .m-bar-track{ margin-top:8px; height:3px; border-radius:2px; background:var(--line); overflow:hidden; }
+  .m-bar{ height:100%; width:var(--w,0%); background:var(--pine); border-radius:2px; }
+  .month-cell.is-milestone{ border-color:var(--brass); background:var(--brass-tint); }
+  .m-badge{
+    position:absolute; top:-6px; right:-6px; width:16px; height:16px; border-radius:50%;
+    background:var(--brass); border:2px solid var(--panel); box-shadow:0 1px 2px rgba(33,28,21,.3);
+  }
+
+  /* ---------- Footer / about ---------- */
+  details.about{ margin-top:22px; padding:22px 26px; }
+  details.about summary{
+    cursor:pointer; font-family:var(--font-mono); font-size:13px; color:var(--pine); list-style:none;
+    display:flex; align-items:center; gap:8px;
+  }
+  details.about summary::before{ content:"＋"; font-size:14px; }
+  details.about[open] summary::before{ content:"－"; }
+  details.about summary::-webkit-details-marker{ display:none; }
+  .about-body{ margin-top:14px; color:var(--ink-soft); font-size:13.5px; line-height:1.7; max-width:70ch; }
+  .about-body p{ margin:0 0 10px; }
+
+  footer.fine{ margin-top:26px; color:var(--ink-faint); font-size:12px; text-align:center; }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ transition:none !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="noise-overlay" aria-hidden="true"></div>
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">Afkastberegner · Danmark</div>
+    <h1>Se dine penge vokse, måned for måned.</h1>
+    <p>Sæt startbeløb, månedligt indskud og forventet afkast — og følg opsparingen vokse i din helt egen opsparingsbog, år for år.</p>
+  </header>
+
+  <div class="hero-grid">
+    <!-- Controls -->
+    <section class="panel controls" aria-label="Indstillinger">
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <label class="ctrl-label" for="startNum">Startbeløb</label>
+          <div class="ctrl-value">
+            <input id="startNum" type="number" inputmode="numeric" step="1000" aria-label="Startbeløb i kroner">
+            <span class="unit">kr.</span>
+          </div>
+        </div>
+        <input id="startRange" type="range" min="0" max="1000000" step="1000" aria-label="Startbeløb, skyder">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <label class="ctrl-label" for="monthlyNum">Månedligt indskud</label>
+          <div class="ctrl-value">
+            <input id="monthlyNum" type="number" inputmode="numeric" step="100" aria-label="Månedligt indskud i kroner">
+            <span class="unit">kr.</span>
+          </div>
+        </div>
+        <input id="monthlyRange" type="range" min="0" max="20000" step="100" aria-label="Månedligt indskud, skyder">
+      </div>
+
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <label class="ctrl-label" for="rateNum">Forventet årligt afkast
+            <span class="ctrl-hint">Historisk ca. 4–8 % p.a. for globale aktier</span>
+          </label>
+          <div class="ctrl-value">
+            <input id="rateNum" type="number" inputmode="decimal" step="0.1" aria-label="Forventet årligt afkast i procent">
+            <span class="unit">%</span>
+          </div>
+        </div>
+        <input id="rateRange" type="range" min="0" max="15" step="0.1" aria-label="Forventet årligt afkast, skyder">
+        <div class="chip-row" id="rateChips">
+          <button class="chip" type="button" data-rate="4">Forsigtig · 4%</button>
+          <button class="chip" type="button" data-rate="7">Moderat · 7%</button>
+          <button class="chip" type="button" data-rate="10">Optimistisk · 10%</button>
+        </div>
+      </div>
+
+      <hr class="rule">
+
+      <div class="ctrl">
+        <div class="ctrl-head">
+          <label class="ctrl-label" for="yearsNum">Tidshorisont</label>
+          <div class="ctrl-value">
+            <input id="yearsNum" type="number" inputmode="numeric" step="1" aria-label="Tidshorisont i år">
+            <span class="unit">år</span>
+          </div>
+        </div>
+        <input id="yearsRange" type="range" min="1" max="40" step="1" aria-label="Tidshorisont, skyder">
+        <div class="chip-row" id="yearsChips">
+          <button class="chip" type="button" data-years="5">5 år</button>
+          <button class="chip" type="button" data-years="10">10 år</button>
+          <button class="chip" type="button" data-years="20">20 år</button>
+          <button class="chip" type="button" data-years="30">30 år</button>
+          <button class="chip" type="button" data-years="40">40 år</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hero result -->
+    <section class="hero" aria-label="Resultat" aria-live="polite">
+      <div class="hero-label">Samlet værdi om <span id="heroYearsLabel">20</span> år</div>
+      <div class="hero-figure"><span id="heroFinal" class="mono">0</span><span class="suffix">kr.</span></div>
+      <div class="hero-sub">Startende med <span id="heroStartEcho" class="mono">0 kr.</span> og løbende indskud</div>
+
+      <div class="proportion">
+        <div class="bar-track"><div class="bar-seg contrib" id="barContrib" style="width:50%"></div><div class="bar-seg gain" id="barGain" style="width:50%"></div></div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat contrib">
+          <div class="stat-label"><span class="dot"></span>Indbetalt i alt</div>
+          <div class="stat-value mono" id="heroContrib">0 kr.</div>
+        </div>
+        <div class="stat gain">
+          <div class="stat-label"><span class="dot"></span>Afkast i alt</div>
+          <div class="stat-value mono" id="heroGain">0 kr.</div>
+        </div>
+      </div>
+
+      <div class="hero-foot">Renters rente beregnes månedligt · ingen skat eller inflation medregnet</div>
+    </section>
+  </div>
+
+  <!-- Chart -->
+  <section class="panel section">
+    <div class="section-head">
+      <div>
+        <h2>Vækst over tid</h2>
+        <p>Før musen hen over kurven for at se et præcist punkt</p>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap">
+      <div id="chartSvgHost"></div>
+      <div class="chart-tooltip" id="chartTooltip" aria-hidden="true"></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="sw rust"></span>Indbetalt</div>
+      <div class="legend-item"><span class="sw brass"></span>Afkast</div>
+    </div>
+  </section>
+
+  <!-- Ledger -->
+  <section class="panel section">
+    <div class="section-head">
+      <div>
+        <h2>Din opsparingsbog</h2>
+        <p>Én side pr. år — klik for at folde en side ud. Guldmærket ★ viser en runding nået.</p>
+      </div>
+    </div>
+    <div class="ledger-toolbar">
+      <button class="text-btn" id="toggleAll" type="button">Fold alle ud</button>
+    </div>
+    <div class="ledger-list" id="ledgerList"></div>
+  </section>
+
+  <details class="panel about">
+    <summary>Sådan regner vi</summary>
+    <div class="about-body">
+      <p>Beregningen antager, at afkastet tilskrives løbende og forrentes måned for måned (renters rente), og at det månedlige indskud indbetales ved udgangen af hver måned. Det årlige afkast omregnes til en tilsvarende månedlig rente.</p>
+      <p>Der er ikke taget højde for skat, inflation, kurtage eller andre omkostninger — og afkastet er dit eget skøn, ikke en garanti. Værktøjet er til illustration og udgør ikke individuel investeringsrådgivning.</p>
+    </div>
+  </details>
+
+  <footer class="fine">Afkastberegner · lavet til at lege med tal, ikke som erstatning for rådgivning.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var baseYear = new Date().getFullYear();
+  var monthNamesDa = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'];
+  var monthNamesFull = ['januar','februar','marts','april','maj','juni','juli','august','september','oktober','november','december'];
+
+  var state = { start: 50000, monthly: 2000, rate: 7, years: 20 };
+  var expandedYears = new Set([1, state.years]);
+  var prevHero = { final: 0, contrib: 0, gain: 0 };
+  var rafId = null;
+
+  /* ---------------- formatting ---------------- */
+  function formatKr(n){ return Math.round(n).toLocaleString('da-DK') + ' kr.'; }
+  function formatNum(n){ return Math.round(n).toLocaleString('da-DK'); }
+  function formatCompact(n){
+    if (n >= 1000000) return (n/1000000).toLocaleString('da-DK',{maximumFractionDigits:1}) + ' mio.';
+    if (n >= 1000) return Math.round(n/1000) + 'k';
+    return Math.round(n).toString();
+  }
+
+  /* ---------------- math helpers ---------------- */
+  function niceCeil(x){
+    if (x <= 0) return 1000;
+    var magnitude = Math.pow(10, Math.floor(Math.log10(x)));
+    var steps = [1,2,2.5,5,10];
+    for (var i=0;i<steps.length;i++){ if (x <= steps[i]*magnitude) return steps[i]*magnitude; }
+    return 10*magnitude;
+  }
+  function niceStep(x){
+    if (x <= 0) return 10000;
+    var magnitude = Math.pow(10, Math.floor(Math.log10(x)));
+    var residual = x/magnitude, n;
+    if (residual < 1.5) n = 1; else if (residual < 3) n = 2; else if (residual < 7) n = 5; else n = 10;
+    return Math.max(10000, n*magnitude);
+  }
+
+  /* ---------------- core calculation ---------------- */
+  function computeSeries(s){
+    var totalMonths = s.years * 12;
+    var monthlyRate = Math.pow(1 + s.rate/100, 1/12) - 1;
+    var series = [{ i:0, balance:s.start, contributed:s.start, yearIndex:0, monthInYear:-1 }];
+    var balance = s.start, contributed = s.start;
+    for (var m=1; m<=totalMonths; m++){
+      balance = balance * (1 + monthlyRate) + s.monthly;
+      contributed += s.monthly;
+      series.push({
+        i:m, balance:balance, contributed:contributed,
+        yearIndex: Math.ceil(m/12), monthInYear: (m-1)%12
+      });
+    }
+    var final = series[series.length-1];
+    return {
+      series: series, totalMonths: totalMonths, start: s.start,
+      finalBalance: final.balance, totalContributed: final.contributed,
+      totalGain: final.balance - final.contributed
+    };
+  }
+
+  function computeMilestones(data){
+    var threshold = niceStep(data.finalBalance/6);
+    var flags = {};
+    for (var i=1;i<data.series.length;i++){
+      var prev = data.series[i-1].balance, cur = data.series[i].balance;
+      if (Math.floor(cur/threshold) > Math.floor(prev/threshold)){
+        flags[i] = Math.floor(cur/threshold) * threshold;
+      }
+    }
+    return { threshold: threshold, flags: flags };
+  }
+
+  /* ---------------- number tween ---------------- */
+  function tweenNumbers(list, duration){
+    if (reduceMotion){ list.forEach(function(o){ o.el.textContent = o.format(o.to); }); return; }
+    if (rafId) cancelAnimationFrame(rafId);
+    var start = performance.now();
+    function tick(now){
+      var t = Math.min(1, (now-start)/duration);
+      var eased = 1 - Math.pow(1-t, 3);
+      list.forEach(function(o){ o.el.textContent = o.format(o.from + (o.to-o.from)*eased); });
+      if (t < 1) rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* ---------------- DOM refs ---------------- */
+  var el = {};
+  ['startNum','startRange','monthlyNum','monthlyRange','rateNum','rateRange','yearsNum','yearsRange',
+   'heroFinal','heroYearsLabel','heroStartEcho','heroContrib','heroGain','barContrib','barGain',
+   'chartSvgHost','chartTooltip','ledgerList','toggleAll','rateChips','yearsChips'
+  ].forEach(function(id){ el[id] = document.getElementById(id); });
+
+  var controlDefs = [
+    { key:'start',   range: el.startRange,   num: el.startNum,   min:0,       max:1000000, step:1000 },
+    { key:'monthly', range: el.monthlyRange, num: el.monthlyNum, min:0,       max:20000,   step:100  },
+    { key:'rate',    range: el.rateRange,    num: el.rateNum,    min:0,       max:15,      step:0.1  },
+    { key:'years',   range: el.yearsRange,   num: el.yearsNum,   min:1,       max:40,      step:1    }
+  ];
+
+  controlDefs.forEach(function(def){
+    def.range.min = def.min; def.range.max = def.max; def.range.step = def.step;
+    def.num.min = def.min; def.num.max = def.max; def.num.step = def.step;
+    def.range.value = state[def.key];
+    def.num.value = state[def.key];
+    updateFill(def);
+
+    def.range.addEventListener('input', function(){
+      state[def.key] = parseFloat(def.range.value);
+      def.num.value = state[def.key];
+      updateFill(def);
+      onYearsMaybeChanged(def);
+      recalc(false);
+    });
+    def.num.addEventListener('input', function(){
+      var v = parseFloat(def.num.value);
+      if (isNaN(v)) return;
+      v = Math.min(def.max, Math.max(def.min, v));
+      state[def.key] = v;
+      def.range.value = v;
+      updateFill(def);
+      onYearsMaybeChanged(def);
+      recalc(false);
+    });
+    def.num.addEventListener('blur', function(){
+      def.num.value = state[def.key];
+    });
+  });
+
+  function onYearsMaybeChanged(def){
+    if (def.key === 'years'){
+      expandedYears.add(1);
+      expandedYears.add(state.years);
+    }
+  }
+
+  function updateFill(def){
+    var pct = (state[def.key] - def.min) / (def.max - def.min) * 100;
+    def.range.style.setProperty('--fill', pct + '%');
+  }
+
+  /* chips */
+  el.rateChips.addEventListener('click', function(e){
+    var btn = e.target.closest('.chip'); if (!btn) return;
+    state.rate = parseFloat(btn.dataset.rate);
+    syncControlsFromState();
+    recalc(false);
+  });
+  el.yearsChips.addEventListener('click', function(e){
+    var btn = e.target.closest('.chip'); if (!btn) return;
+    state.years = parseFloat(btn.dataset.years);
+    expandedYears.add(1); expandedYears.add(state.years);
+    syncControlsFromState();
+    recalc(false);
+  });
+  function syncControlsFromState(){
+    controlDefs.forEach(function(def){
+      def.range.value = state[def.key];
+      def.num.value = state[def.key];
+      updateFill(def);
+    });
+  }
+  function updateChipActiveStates(){
+    el.rateChips.querySelectorAll('.chip').forEach(function(c){
+      c.classList.toggle('is-active', Math.abs(parseFloat(c.dataset.rate) - state.rate) < 0.05);
+    });
+    el.yearsChips.querySelectorAll('.chip').forEach(function(c){
+      c.classList.toggle('is-active', parseFloat(c.dataset.years) === state.years);
+    });
+  }
+
+  /* ---------------- chart ---------------- */
+  var PAD = { l:56, r:14, t:16, b:28 };
+  var VB_W = 1000, VB_H = 380;
+  var plotW = VB_W - PAD.l - PAD.r, plotH = VB_H - PAD.t - PAD.b;
+
+  function renderChart(data){
+    var maxVal = niceCeil(data.finalBalance * 1.1);
+    var totalMonths = data.totalMonths;
+
+    function xScale(i){ return PAD.l + (i/totalMonths) * plotW; }
+    function yScale(v){ return PAD.t + plotH - (v/maxVal) * plotH; }
+
+    var baselineY = PAD.t + plotH;
+    var contribPts = data.series.map(function(p){ return [xScale(p.i), yScale(p.contributed)]; });
+    var balPts = data.series.map(function(p){ return [xScale(p.i), yScale(p.balance)]; });
+
+    var contribArea = 'M ' + contribPts[0][0] + ',' + baselineY + ' ' +
+      contribPts.map(function(p){ return 'L ' + p[0] + ',' + p[1]; }).join(' ') +
+      ' L ' + contribPts[contribPts.length-1][0] + ',' + baselineY + ' Z';
+
+    var gainArea = 'M ' + balPts[0][0] + ',' + balPts[0][1] + ' ' +
+      balPts.slice(1).map(function(p){ return 'L ' + p[0] + ',' + p[1]; }).join(' ') + ' ' +
+      contribPts.slice().reverse().map(function(p){ return 'L ' + p[0] + ',' + p[1]; }).join(' ') + ' Z';
+
+    var balLine = 'M ' + balPts.map(function(p){ return p[0] + ',' + p[1]; }).join(' L ');
+
+    /* gridlines */
+    var grid = '';
+    [0.25,0.5,0.75,1].forEach(function(f){
+      var y = yScale(maxVal*f);
+      grid += '<line x1="'+PAD.l+'" x2="'+(VB_W-PAD.r)+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-width="1"/>';
+      grid += '<text x="'+(PAD.l-10)+'" y="'+(y+4)+'" text-anchor="end" class="mono" font-size="11" fill="var(--ink-faint)">'+formatCompact(maxVal*f)+'</text>';
+    });
+
+    /* x ticks */
+    var years = state.years;
+    var step = years <= 8 ? 1 : years <= 16 ? 2 : years <= 30 ? 5 : 10;
+    var xticks = '';
+    for (var y=0; y<=years; y+=step){
+      var x = xScale(y*12);
+      xticks += '<text x="'+x+'" y="'+(VB_H-6)+'" text-anchor="'+(y===0?'start':(y===years?'end':'middle'))+'" class="mono" font-size="11" fill="var(--ink-faint)">'+(y===0?'Start':y+' år')+'</text>';
+    }
+
+    var lastPt = balPts[balPts.length-1];
+    var labelY = Math.max(lastPt[1]-14, PAD.t+12);
+    var endLabel = '<text x="'+(lastPt[0]-6)+'" y="'+labelY+'" text-anchor="end" class="mono" font-size="12" font-weight="600" fill="var(--brass-deep)">'+formatKr(data.finalBalance)+'</text>';
+
+    var svg = '' +
+      '<svg viewBox="0 0 '+VB_W+' '+VB_H+'" role="img" aria-label="Graf over opsparingens vækst">' +
+        '<g>'+grid+'</g>' +
+        '<path d="'+contribArea+'" fill="var(--rust)" fill-opacity="0.55"/>' +
+        '<path d="'+gainArea+'" fill="var(--brass)" fill-opacity="0.7"/>' +
+        '<path d="'+balLine+'" fill="none" stroke="var(--pine-deep)" stroke-width="2.25" stroke-linejoin="round"/>' +
+        '<circle cx="'+balPts[0][0]+'" cy="'+balPts[0][1]+'" r="3.5" fill="var(--pine-deep)"/>' +
+        '<circle cx="'+lastPt[0]+'" cy="'+lastPt[1]+'" r="4" fill="var(--brass-deep)"/>' +
+        endLabel +
+        '<g>'+xticks+'</g>' +
+        '<line id="crosshair" x1="0" x2="0" y1="'+PAD.t+'" y2="'+baselineY+'" stroke="var(--ink-faint)" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>' +
+        '<circle id="marker" cx="0" cy="0" r="4.5" fill="var(--panel)" stroke="var(--pine-deep)" stroke-width="2" opacity="0"/>' +
+        '<rect id="overlay" x="'+PAD.l+'" y="0" width="'+plotW+'" height="'+VB_H+'" fill="transparent"/>' +
+      '</svg>';
+
+    el.chartSvgHost.innerHTML = svg;
+
+    var svgEl = el.chartSvgHost.querySelector('svg');
+    var overlay = el.chartSvgHost.querySelector('#overlay');
+    var crosshair = el.chartSvgHost.querySelector('#crosshair');
+    var marker = el.chartSvgHost.querySelector('#marker');
+    var tooltip = el.chartTooltip;
+
+    function pointerToIndex(evt){
+      var rect = svgEl.getBoundingClientRect();
+      var clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+      var relX = (clientX - rect.left) / rect.width * VB_W;
+      var frac = (relX - PAD.l) / plotW;
+      frac = Math.min(1, Math.max(0, frac));
+      return Math.round(frac * totalMonths);
+    }
+
+    function showAt(idx){
+      var p = data.series[idx];
+      var x = xScale(p.i), y = yScale(p.balance);
+      crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x); crosshair.setAttribute('opacity', 1);
+      marker.setAttribute('cx', x); marker.setAttribute('cy', y); marker.setAttribute('opacity', 1);
+
+      var label = p.i === 0 ? ('I dag, ' + baseYear) : (monthNamesFull[p.monthInYear] + ' ' + (baseYear + p.yearIndex - 1));
+      tooltip.innerHTML =
+        '<div class="tt-title">'+label+'</div>' +
+        '<div class="tt-row"><span class="k">Saldo</span><span class="v">'+formatKr(p.balance)+'</span></div>' +
+        '<div class="tt-row"><span class="k">Indbetalt</span><span class="v">'+formatKr(p.contributed)+'</span></div>' +
+        '<div class="tt-row"><span class="k">Afkast</span><span class="v">'+formatKr(p.balance-p.contributed)+'</span></div>';
+
+      var rect = svgEl.getBoundingClientRect();
+      var wrapRect = el.chartWrap ? el.chartWrap.getBoundingClientRect() : rect;
+      var px = rect.left - (document.getElementById('chartWrap').getBoundingClientRect().left) + (x/VB_W)*rect.width;
+      var py = rect.top - (document.getElementById('chartWrap').getBoundingClientRect().top) + (y/VB_H)*rect.height;
+      tooltip.style.left = px + 'px';
+      tooltip.style.top = py + 'px';
+      tooltip.classList.add('is-visible');
+    }
+    function hide(){
+      crosshair.setAttribute('opacity', 0);
+      marker.setAttribute('opacity', 0);
+      tooltip.classList.remove('is-visible');
+    }
+
+    overlay.addEventListener('mousemove', function(e){ showAt(pointerToIndex(e)); });
+    overlay.addEventListener('mouseleave', hide);
+    overlay.addEventListener('touchstart', function(e){ showAt(pointerToIndex(e)); }, {passive:true});
+    overlay.addEventListener('touchmove', function(e){ showAt(pointerToIndex(e)); }, {passive:true});
+    overlay.addEventListener('touchend', hide);
+  }
+
+  /* ---------------- ledger ---------------- */
+  function renderLedger(data, milestones){
+    var yearsCount = state.years;
+    var html = '';
+
+    for (var y=1; y<=yearsCount; y++){
+      var monthsOfYear = data.series.filter(function(p){ return p.yearIndex === y; });
+      if (!monthsOfYear.length) continue;
+      var yearMax = monthsOfYear[monthsOfYear.length-1].balance;
+      var yearEnd = monthsOfYear[monthsOfYear.length-1];
+      var calendarYear = baseYear + y - 1;
+      var isOpen = expandedYears.has(y);
+
+      var cells = monthsOfYear.map(function(p){
+        var isMilestone = milestones.flags.hasOwnProperty(p.i);
+        var pct = yearMax > 0 ? Math.max(4, (p.balance/yearMax)*100) : 0;
+        var title = isMilestone ? (formatKr(milestones.flags[p.i]) + ' nået') : '';
+        return '<div class="month-cell'+(isMilestone?' is-milestone':'')+'"'+(title?(' title="'+title+'"'):'')+'>' +
+          '<span class="m-label">'+monthNamesDa[p.monthInYear]+'</span>' +
+          '<span class="m-value mono">'+formatNum(p.balance)+'</span>' +
+          '<span class="m-bar-track"><span class="m-bar" style="--w:'+pct+'%"></span></span>' +
+          (isMilestone ? '<span class="m-badge" aria-hidden="true"></span>' : '') +
+        '</div>';
+      }).join('');
+
+      html += '' +
+        '<div class="year-card'+(isOpen?' is-open':'')+'" data-year="'+y+'">' +
+          '<button class="year-head" aria-expanded="'+isOpen+'">' +
+            '<span class="year-tag mono">År '+y+'</span>' +
+            '<span class="year-cal">'+calendarYear+'</span>' +
+            '<span class="year-meta">Indbetalt i år: '+formatKr(yearEnd.contributed - (data.series[(y-1)*12] ? data.series[(y-1)*12].contributed : data.start) + (data.series[(y-1)*12] ? 0 : 0))+'</span>' +
+            '<span class="year-end mono">'+formatKr(yearEnd.balance)+'</span>' +
+            '<svg class="chevron" viewBox="0 0 12 12" fill="none"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</button>' +
+          '<div class="year-body" '+(isOpen?'':'hidden')+'>' +
+            '<div class="month-grid">'+cells+'</div>' +
+          '</div>' +
+        '</div>';
+    }
+    el.ledgerList.innerHTML = html;
+  }
+
+  el.ledgerList.addEventListener('click', function(e){
+    var head = e.target.closest('.year-head'); if (!head) return;
+    var card = head.closest('.year-card');
+    var y = parseInt(card.dataset.year, 10);
+    if (expandedYears.has(y)) expandedYears.delete(y); else expandedYears.add(y);
+    recalc(true);
+  });
+
+  el.toggleAll.addEventListener('click', function(){
+    var allOpen = expandedYears.size >= state.years;
+    if (allOpen){
+      expandedYears.clear();
+    } else {
+      expandedYears.clear();
+      for (var y=1;y<=state.years;y++) expandedYears.add(y);
+    }
+    el.toggleAll.textContent = allOpen ? 'Fold alle ud' : 'Fold alle sammen';
+    recalc(true);
+  });
+
+  /* ---------------- main recalc ---------------- */
+  function recalc(skipHeroAnim){
+    var data = computeSeries(state);
+    var milestones = computeMilestones(data);
+
+    updateChipActiveStates();
+
+    el.heroYearsLabel.textContent = state.years;
+    el.heroStartEcho.textContent = formatKr(state.start);
+
+    var contribPct = data.finalBalance > 0 ? (data.totalContributed/data.finalBalance)*100 : 50;
+    var gainPct = 100 - contribPct;
+    el.barContrib.style.width = contribPct + '%';
+    el.barGain.style.width = gainPct + '%';
+
+    tweenNumbers([
+      { el: el.heroFinal, from: prevHero.final, to: data.finalBalance, format: formatNum },
+      { el: el.heroContrib, from: prevHero.contrib, to: data.totalContributed, format: formatKr },
+      { el: el.heroGain, from: prevHero.gain, to: data.totalGain, format: formatKr }
+    ], skipHeroAnim ? 0 : 450);
+    prevHero = { final: data.finalBalance, contrib: data.totalContributed, gain: data.totalGain };
+
+    renderChart(data);
+    renderLedger(data, milestones);
+
+    el.toggleAll.textContent = (expandedYears.size >= state.years) ? 'Fold alle sammen' : 'Fold alle ud';
+  }
+
+  recalc(true);
+
+  /* ---------------- PWA install (best-effort) ---------------- */
+  window.addEventListener('load', function(){
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    }
+  });
+})();
+</script>
+</body>
+</html>
