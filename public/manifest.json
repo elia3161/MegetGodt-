@@ -1,0 +1,15 @@
+{
+  "name": "MegetGodt Invest",
+  "short_name": "Invest",
+  "start_url": "/MegetGodt-/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5a4",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
